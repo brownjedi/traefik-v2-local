@@ -1,0 +1,32 @@
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false
+
+log:
+  level: ERROR
+
+api:
+  dashboard: true
+
+entryPoints:
+  web:
+    address: :80
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+          permanent: true
+
+  websecure:
+    address: :443
+
+providers:
+  docker:
+    endpoint: tcp://socket-proxy:2375
+    watch: true
+    network: proxy
+    exposedbydefault: false
+  file:
+    filename: /config.yml
+    watch: true

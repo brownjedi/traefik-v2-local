@@ -1,0 +1,62 @@
+version: "3.7"
+
+services:
+  dnsmasq:
+    image: jpillora/dnsmasq:latest
+    container_name: global-dnsmasq
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - 53:53/udp
+    networks:
+      - proxy
+    volumes:
+      - ./dnsmasq/dnsmasq.conf:/etc/dnsmasq.conf:ro
+
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy
+    container_name: dnsmasq-socket-proxy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      CONTAINERS: 1
+    networks:
+      - proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  traefik:
+    image: traefik:v2.2.1
+    container_name: global-traefik
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - dnsmasq
+      - socket-proxy
+    healthcheck:
+      test: traefik healthcheck --ping
+    ports:
+      # Port 443 is used for HTTP trafic
+      - 80:80
+      # Port 443 is used for HTTPS trafic
+      - 443:443
+    volumes:
+      # Here is the mount of the traefik config
+      - ./traefik/traefik.yml:/traefik.yml:ro
+      # Here is the mount of the dynamic config
+      - ./traefik/config.yml:/config.yml:ro
+      # Here is the mount user credentials
+      - ./credentials.txt:/credentials.txt:ro
+      # Here is the mount of the certs directory
+      - ./certs:/certs:ro
+    networks:
+      # Attach the traefik container to the default network (which is the global "proxy" network)
+      - proxy
+
+# Make the externally created network "proxy" available as network "proxy"
+networks:
+  proxy:
+    external: true
